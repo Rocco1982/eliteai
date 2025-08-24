@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Elite AI – Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;background:#f3f4f6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+    .card{width:380px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,.08);display:flex;flex-direction:column;overflow:hidden}
+    .messages{padding:16px;flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px}
+    .msg{max-width:78%;padding:10px 12px;border-radius:12px;line-height:1.4}
+    .me{align-self:flex-end;background:#0038ff;color:white}
+    .bot{align-self:flex-start;background:#eef2ff;color:#0b1220}
+    .input{display:flex;border-top:1px solid #eee}
+    input{flex:1;padding:12px;border:0}
+    button{background:#0038ff;color:#fff;border:0;padding:0 16px}
+  </style>
+</head>
+<body>
+  <div class="card" role="main">
+    <div class="messages" id="messages"></div>
+    <div class="input">
+      <input id="text" placeholder="Say something..." />
+      <button id="send">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const messages = document.getElementById('messages');
+    const text = document.getElementById('text');
+    const send = document.getElementById('send');
+
+    function add(textContent, cls) {
+      const d = document.createElement('div');
+      d.className = 'msg ' + cls;
+      d.textContent = textContent;
+      messages.appendChild(d);
+      messages.scrollTop = messages.scrollHeight;
+      return d;
+    }
+
+    async function sendMessage() {
+      const val = text.value.trim();
+      if (!val) return;
+      add(val, 'me');
+      text.value = '';
+      const threadId = localStorage.getItem('assistant_thread') || null;
+
+      // show typing placeholder
+      const placeholder = add('Assistant is typing…', 'bot');
+
+      try {
+        const res = await fetch('/api/assistant', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ message: val, threadId })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          placeholder.textContent = 'Error: ' + errText;
+          return;
+        }
+        const data = await res.json();
+        // persist thread id for continued conversation
+        if (data.threadId) localStorage.setItem('assistant_thread', data.threadId);
+        placeholder.textContent = data.reply || 'No response';
+      } catch (e) {
+        placeholder.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    send.addEventListener('click', sendMessage);
+    text.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+    // greeting
+    add('Welcome — demo powered by your Assistant. Type a message to start.', 'bot');
+  </script>
+</body>
+</html>
